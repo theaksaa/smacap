@@ -28,7 +28,13 @@ void setup()
     servo.write(30);
     
 }
-
+int calculateMinimumAngle()
+{
+  	int angle=45;
+  	while(getDistance(1)<400)
+  	    servo.write(++angle);
+  	return angle;
+}
 int angleCalib(int k)
 {
     if(k == 0)
