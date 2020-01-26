@@ -26,6 +26,7 @@ void setup()
 
     servo.attach(servoPin);
     servo.write(30);
+    Serial.println(calibration());
     
 }
 int calculateMinimumAngle()
@@ -65,7 +66,7 @@ int angleCalib(int k)
     return distance1 - distance2;
 }
 
-int calibration(int &stepUp, int &stepDown)
+int calibration()
 {
     int sDown = angleCalib(0); // CALIBRATION WHEN SERVO ANGLE IS 0 (down angle)
     int sUp = angleCalib(30); // CALIBRATION WHEN SERVO ANGLE IS 30 (flat angle)
@@ -100,10 +101,28 @@ void printDistances()
     Serial.println("======================");
 }
 
+int checkObstacle(int angle)
+{
+    servo.write(angle);
+    int distance = getDistance(1);
+
+    if(angle <= 25 && distance <= stepUp) return 1;
+    if(angle <= 5 && distance <= stepDown) return 1;
+    return 0;
+}
+
 void loop()
 {
-    Serial.println(getDistance(1));
-    delayMicroseconds(delayTime); 
+    for(int i = 30; i >= 0; i--)
+    {
+        Serial.println(checkObstacle(i));
+        delayMicroseconds(delayTime); 
+    }
+    for(int i = 0; i < 30; i++)
+    {
+        Serial.println(checkObstacle(i));
+        delayMicroseconds(delayTime); 
+    }
     /*Serial.print("korak: ");
     Serial.println(calibration(stepUp, stepDown));
     delay(3000);*/
