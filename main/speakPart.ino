@@ -26,6 +26,7 @@ void setup()
 void loop()
 {
 }
+//should check this part if it works
 void printData(int height, int stepSize)
 {
     calibrationInfo = SD.open("data.txt", FILE_WRITE);
@@ -53,6 +54,7 @@ void readData(int &height, int &stepSize)
     }
     calibrationInfo.close();
 }
+//--------------------------------------------------------
 bool angleChangedDrastically(double prev_left, double prev_right, double current_left, double current_right)
 {
     if (prev_left - current_left >= 25)
