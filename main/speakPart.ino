@@ -5,6 +5,7 @@
 
 TMRpcm speaker;
 File calibrationInfo;
+char *sound_format = (char *)"  .wav";
 void setup()
 {
     // speaker.speakerPin = 9;
@@ -44,7 +45,10 @@ void readData(int &height, int &stepSize)
     {
         c = calibrationInfo.read();
         if (c != '\n' && (c < '0' || c > '9'))
-            return;
+            {
+                calibrationInfo.close();
+                return;
+            }
         if (c == '\n')
             b = true;
         if (!b)
@@ -91,13 +95,23 @@ int numberOfDigits(int p)
     if (p < 1000)
         return 3;
 }
-void speak(float distance)
+int distanceToSteps(int distance, int stepSize)
 {
-    String s;
-    char *sound_format = (char *)" .wav";
-    s = (String)distance;
-
-    for (int i = 0; i < s.length() - 1; i++)
+  return distance/stepSize;
+}
+void intToChar(char *t, int p)
+{
+    if (p < 10)
+        t[0] = '0', t[1] = p+48;
+    else
+        t[0] = (p / 10)+48, t[1] = (char)(p % 10)+48;
+}
+void speak(int stepNum)
+{
+    intToChar(sound_format,stepNum);
+    speaker.play(sound_format);
+    
+    /*for (int i = 0; i < s.length() - 1; i++)
     {
         if (s[i] == '.')
             Serial.print("."); //speaker.play((char*)"zarez.wav");
@@ -105,14 +119,18 @@ void speak(float distance)
             Serial.print(s[i]); //sound_format[0] = s[i], speaker.play(sound_format);
         delay(15);
     }
-    Serial.println();
+    Serial.println();*/
 }
-void doWhatYouNeed(int distance1, int distance2, int distance3, double prev_left, double prev_right, int &informed)
+void checkWalkingCondition(int distance1, int distance2, int distance3, double &prev_left, double &prev_right, bool &informed)
 {
     if (distance1 < 400 && !informed)
     {
         speak((float)distance1 / 100);
-        informed = 1;
+        delay(30);
+        speak((float)distance2 / 100);
+        delay(30);
+        speak((float)distance3 / 100);
+        informed = true;
         return;
     }
     double current_left = calculateAngle(distance1, distance2);
@@ -120,9 +138,13 @@ void doWhatYouNeed(int distance1, int distance2, int distance3, double prev_left
 
     if (angleChangedDrastically(prev_left, prev_right, current_left, current_right))
     {
-        speak((float)distance2 / 100);
-        delay(30);
-        speak((float)distance3 / 100);
-        informed = 0;
+        int a=calculateMovingDistance(distance1,distance2);
+        int b=calculateMovingDistance(distance1,distance3);
+        informed = false;
+        delay(500);
+        //CheckWalkingCondition(getDistance(1),a,b,a,b,informed);
     }
+    else delay(1000);
+        prev_left=current_left;
+    prev_right=current_right;
 }
