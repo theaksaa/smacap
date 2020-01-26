@@ -42,7 +42,7 @@ void readData(int &height, int &stepSize)
     while (calibrationInfo.available())
     {
         c = calibrationInfo.read();
-        if (c < '0' || c > '9' || c != '\n')
+        if (c != '\n' && (c < '0' || c > '9'))
             return;
         if (c == '\n')
             b = true;
@@ -51,6 +51,7 @@ void readData(int &height, int &stepSize)
         if (b)
             stepSize = stepSize * 10 + c - 48;
     }
+    calibrationInfo.close();
 }
 bool angleChangedDrastically(double prev_left, double prev_right, double current_left, double current_right)
 {
