@@ -1,38 +1,59 @@
-#include <Servo.h> 
-#define us_N 3
+#include <Servo.h>
+#include <SD.h>
+#include <TMRpcm.h>
+#include <SPI.h>
+
 #define default_angle 30
 
 // SENSORS
 int servoPin = 3;
 Servo servo; 
 
-int speakerPin = 2;
+int sdSelectPin = 10;
+TMRpcm speaker;
 
-int trigPin[us_N] = {13, 6, 4}; // 0 - levo, 1 - srednje, 2 - desno
-int echoPin[us_N] = {12, 7, 5};
+char *sound_format = (char*)"  .wav";
+
+int speakPin = 9;
+
+int trigPin[3] = {8, 6, 4}; // 0 - levo, 1 - srednje, 2 - desno
+int echoPin[3] = {2, 7, 5};
 
 // OTHER VARIABLES
-int delayTime = 20;
 
-int stepUp = 0;
-int stepDown = 0;
-
-int inf = 2000; // 2323 max
+float soundSpeed = 0.034;
+int stepSize = 30;
+int angle = 30;
 
 void setup()
 {
     Serial.begin(9600);
 
     // INITIALIZATION
-    for(int i = 0; i < us_N; i++)
+    for(int i = 0; i < 3; i++)
         pinMode(trigPin[i], OUTPUT), pinMode(echoPin[i], INPUT);
 
     servo.attach(servoPin);
     servo.write(default_angle);
 
-    beep(91, 5, 10, 100);
+    speaker.speakerPin = speakPin;
 
-    Serial.println(calibration());
+    if (!SD.begin(sdSelectPin))
+    {
+        beep(97, 10, 10, 1000);
+        Serial.println("SD fail!");
+        return;
+    }
+    
+    speaker.setVolume(3);
+    delay(1000);
+
+    if(!calibration()) 
+    {
+        beep(97, 5, 10, 1000);
+        Serial.println("Calibration fail!");
+        return;
+    }
 }
 
 //=======================================================================// SPEAKER
@@ -41,69 +62,72 @@ void beep(int note, int n, int ntime, int dtime)
 {
     for(int i = 0; i < n; i++)
     {
-        tone(speakerPin, note, ntime * (1000 / note));
+        tone(speakPin, note, ntime * (1000 / note));
         delay(dtime);
     }
 }
 
-//=======================================================================// ANGLES
-int calculateMinimumAngle()
+void intToChar(int p)
 {
-  	int angle=45;
-  	while(getDistance(1)<400)
-  	    servo.write(++angle);
-  	return angle;
+    if (p < 10)
+        sound_format[0] = '0', sound_format[1] = p + 48;
+    else
+        sound_format[0] = (p / 10) + 48, sound_format[1] = (char)(p % 10) + 48;
 }
-/*
-int calculateMinimumAngle()
+
+void speak(int stepNum)
 {
-  	servo.write(45);
-  	int angle=(int)asin(getDistance(1)*sqrt(2)/820);
-  	return angle;
-  
+    intToChar(stepNum);
+    speaker.play((char*)sound_format);
 }
-*/
+
+//=======================================================================// CALIBRATION
+
 int angleCalib(int k)
 {
-    beep(64, 1, 100, 1000);
     if(k == 0)
     {
         servo.write(k);
-        beep(13, 1, 10, 100);
         return getDistance(1);
     }
     
-    servo.write(k);
-    Serial.println("krece kalibracija (gledajte pravo u zid, imate 2 sekunde)");
-    beep(13, 2, 10, 100);
-    delay(2000);
-    int distance1 = getDistance(1);
-    Serial.println("kalibracija (pomerite se jedan korak napred, imate 3 sekunde)");
-    beep(13, 3, 10, 100);
+    //servo.write(k);
+    Serial.println("Calibration begins!\n > Look straight at the wall; you have 3 seconds");
+    speaker.play((char*)"calStart.wav");
+    
     delay(3000);
+    
+    int distance1 = getDistance(1);
+    speaker.play((char*)"calStep.wav");
+    Serial.println(" > Move 1 step forward; you have 4 seconds");
+    
+    delay(4000);
+    
     int distance2 = getDistance(1);
-    Serial.println("kalibracija zavrsena");
-    beep(13, 1, 10, 100);
+    speaker.play((char*)"calEnd.wav");
+    Serial.println("Calibration finished!");
+    
+    delay(2000);
 
-    if(distance1 - distance2 <= 0) return -1;
-    return distance1 - distance2;
+    return abs(distance1 - distance2);
 }
 
 int calibration()
 {
-    int sDown = angleCalib(0); // CALIBRATION WHEN SERVO ANGLE IS 0 (down angle)
-    int sUp = angleCalib(default_angle); // CALIBRATION WHEN SERVO ANGLE IS 30 (flat angle)
-    sDown = sUp;
-
-    if(sUp <= -1 || sDown <= -1)
-    {
-        beep(17, 5, 10, 100);
-        return 0;
-    }
-    stepUp = sUp;
-    stepDown = sDown;
-    beep(81, 5, 10, 100);
+    //int sDown = angleCalib(0);            // CALIBRATION WHEN SERVO ANGLE IS 0 (down angle)
+    stepSize = angleCalib(default_angle);   // CALIBRATION WHEN SERVO ANGLE IS 30 (flat angle)
+    
+    if(stepSize <= 0 && stepSize >= 100) return 0;
+    Serial.print("Step length: ");
+    Serial.println(stepSize);
     return 1;
+}
+
+//=======================================================================// CALCULATIONS
+
+int distanceToSteps(int distance)
+{
+    return distance / stepSize;
 }
 
 int getDistance(int n)
@@ -116,8 +140,10 @@ int getDistance(int n)
     
     digitalWrite(trigPin[n], LOW);
     
-    return (pulseIn(echoPin[n], HIGH) * 0.034) / 2;
+    return (pulseIn(echoPin[n], HIGH) * soundSpeed) / 2;
 }
+
+//=======================================================================// OTHER FUNCTIONS
 
 void printDistances()
 {
@@ -130,43 +156,45 @@ void printDistances()
     Serial.println("======================");
 }
 
-int checkObstacle(int angle)
+//=======================================================================// CHECKING
+
+bool checkObstacle(int distance, int dsize, int k)
 {
-    servo.write(angle);
+    if(angle >= 25 && distance <= dsize && k == 1) return true;
+    if(angle >= 25 && dsize <= distance && k == 0) return true;
+    return false;
+}
+
+bool obstacleExists()
+{
     int distance = getDistance(1);
 
-    if(angle <= 25 && distance <= stepUp) return 1;
-    if(angle <= 13 && distance <= stepDown) return 1;
-    return 0;
+    if(distanceToSteps(distance) <= 1)
+    {
+        if(checkObstacle(getDistance(0), stepSize, 0)) speaker.play((char*)"pL.wav"), delay(1800);
+        if(checkObstacle(getDistance(2), stepSize, 0)) speaker.play((char*)"pR.wav"), delay(1800);
+        
+        return true;
+    }
+
+    if(checkObstacle(distance, 300, 1))
+    {
+        speak(distanceToSteps(distance));
+        delay(1500);
+        speaker.stopPlayback();
+        return true;
+    }
+    
+    speaker.play((char*)"pF.wav");
+    delay(1500);
+    speaker.stopPlayback();
+    return false;
 }
+
+//=======================================================================// LOOP
 
 void loop()
 {
-    for(int i = 35; i >= 0; i--)
-    {
-        if(checkObstacle(i)) beep(57, 5, 10, 100);
-        delay(delayTime); 
-    }
-    for(int i = 0; i < 35; i++)
-    {
-        if(checkObstacle(i)) beep(57, 5, 10, 100);
-        delay(delayTime); 
-    }
-    /*Serial.print("korak: ");
-    Serial.println(calibration(stepUp, stepDown));
-    delay(3000);*/
-    /*
-    for(int i = 0; i < 30; i++)
-    {
-        servo.write(i);
-        printDistances();
-        delayMicroseconds(delayTime); 
-    }
-
-    for(int i = 30; i >= 0; i--)
-    {
-        servo.write(i);
-        printDistances();
-        delayMicroseconds(delayTime); 
-    }*/
+    delay(1000);
+    obstacleExists();
 }
