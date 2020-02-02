@@ -2,6 +2,6 @@
 Smart cap for visually impaired people
 
 # Authors
-Uros Aksentijevic&nbsp;
-Vojin Milovic&nbsp;
-Aleksa Savic&nbsp;
+Uros Aksentijevic  
+Vojin Milovic  
+Aleksa Savic  
