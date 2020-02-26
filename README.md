@@ -5,6 +5,6 @@ Not the first of its kind, with the unique design SMAcap, represents the aid to 
 ![smacap](https://i.imgur.com/3sH7nSk.jpg)
 
 # Authors
-Uroš Aksentijević
+Uroš Aksentijević  
 Vojin Milović  
 Aleksa Savić  
