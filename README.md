@@ -3,6 +3,6 @@ Not the first of its kind, with the unique design SMAcap, represents the aid to 
 
 
 # Authors
-Uros Aksentijevic  
-Vojin Milovic  
-Aleksa Savic  
+Uroš Aksentijević
+Vojin Milović  
+Aleksa Savić  
